@@ -1,0 +1,481 @@
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Text;
+
+
+namespace DefaultNS
+{
+    class RestApiHelper
+    {
+        public static string Url = "";
+        public static string GetSNStatusApiString = "";
+        public static string InsertPassFailDetailTestCaseApiString = "";
+        public static string InsertDetailTestCaseApiString = "";
+        public static string UpdateFirmwareInfoApiString = "";
+        public static string GetSNInfoApiString = "";
+
+
+        public static void InitGlobalVarial()
+        {
+            IniFile ini = new IniFile(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\AppConfig.ini");
+            Url = ini.IniReadValue("API_CONNECTION", "URL", "http://10.139.3.21:81/DIPAPI/");
+            GetSNStatusApiString = ini.IniReadValue("API_CONNECTION", "GetSNStatusApiString", "api/Factory/getSNStatus");
+            InsertPassFailDetailTestCaseApiString = ini.IniReadValue("API_CONNECTION", "InsertPassFailDetailTestCaseApiString", "api/Factory/insertPassFailDetailTestCase");
+            InsertDetailTestCaseApiString = ini.IniReadValue("API_CONNECTION", "InsertDetailTestCaseApiString", "api/Factory/insertDetailTestCase");
+            UpdateFirmwareInfoApiString = ini.IniReadValue("API_CONNECTION", "UpdateFirmwareInfoApiString", "api/Factory/updateFirmwareInfo");
+            GetSNInfoApiString = ini.IniReadValue("API_CONNECTION", "GetSNInfoApiString", "api/Factory/getsninfo");
+        }
+
+        public static string Post(string url, string api_name, string content)
+        {
+            string res = "";
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url + api_name);
+            
+            try
+            {
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+                    res = response;
+                }
+
+                
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("-----------------");
+                Console.Out.WriteLine(ex.Message);
+            }
+            return res;
+        }
+
+
+        public static Model.OutputGetSNStatus GetSNStatus(string serial, string machine_name)
+        {
+            Model.OutputGetSNStatus res;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + GetSNStatusApiString);
+            string content = RestApiHelper.CreateContentInput("InputGetSNStatus", CreateDataGetSnInput(serial, machine_name));
+
+            try
+            {
+                request.Timeout = 5000;
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                Global.WriteLogFile("[API - GetSNStatus] - " + "\r\n" + content);
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+
+                    //{ "Outputs":{ "OutputGetSnStatus":"{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\",\"Confirm\":\"NG\",\"ErrorCode\":\"Công đoạn hiện tại đã hoàn thành\"}"},"__Routing__":"NG"}
+
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(response);
+                    string result = Conv.atos(jObject["Outputs"]["OutputGetSnStatus"]);
+                        
+                    string _sn = GetValueJsonResult(result,"SN");
+                    string _machinename= GetValueJsonResult(result, "MachineName");
+                    string _confirm = GetValueJsonResult(result, "Confirm");
+                    string _errorcode = GetValueJsonResult(result, "ErrorCode");
+
+                    return new Model.OutputGetSNStatus()
+                    {
+                        SN = _sn,
+                        MachineName = _machinename,
+                        Confirm = _confirm,
+                        ErrorCode = _errorcode
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.Out.WriteLine("-----------------");
+                //Console.Out.WriteLine(ex.Message);
+                Global.WriteLogFile("[API - GetSNStatus] - " + ex.Message);
+            }
+            res = null;
+            return res;
+        }
+
+        public static Model.OutputInsertPassFailDetailTestCase InsertPassFailDetailTestCase(string serial, string machine_name, string user_id, DataTable dtabTest)
+        {
+            Model.OutputInsertPassFailDetailTestCase res;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + InsertPassFailDetailTestCaseApiString);
+            string content = CreateContentInput("InputInsertDetailTestCase", CreateDataInsertPassFailDetailTestCaseInput(serial, machine_name, user_id, dtabTest));
+
+            try
+            {
+                request.Timeout = 5000;
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                Global.WriteLogFile("[API - InputInsertPassFailDetailTestCase] - " + "\r\n" + content);
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+
+                    
+                    //{"Outputs": {"__Routing__": null,"OutputsInsertDetailTestCase": {"Status": "OK","ErrorCode": ""}}}
+
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(response);
+                    string result = Conv.atos(jObject["Outputs"]["OutputInsertDetailTestCase"]);
+
+                    string _status = GetValueJsonResult(result, "Confirm");
+                    string _errorcode = GetValueJsonResult(result, "ErrorCode");
+
+                    return new Model.OutputInsertPassFailDetailTestCase()
+                    {
+                        Status = _status,
+                        ErrorCode = _errorcode
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.Out.WriteLine("-----------------");
+                //Console.Out.WriteLine(ex.Message);
+                Global.WriteLogFile("[API - InputInsertPassFailDetailTestCase] - " + ex.Message + "\r\n" + content);
+            }
+            res = null;
+            return res;
+        }
+
+
+        public static Model.OutputInsertDetailTestCase InsertDetailTestCase(string serial, string machine_name, DataTable dtabTest)
+        {
+            Model.OutputInsertDetailTestCase res;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + InsertDetailTestCaseApiString);
+            string content = CreateContentInput("InputInsertDetailTestCase", CreateDataInsertDetailTestCaseInput(serial, machine_name, dtabTest));
+
+            try
+            {
+                request.Timeout = 5000;
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                Global.WriteLogFile("[API - InputInsertDetailTestCase] - "  + "\r\n" + content);
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+
+                    //{"Outputs": {"__Routing__": null,"OutputsInsertDetailTestCase": {"Confirm": "OK","ErrorCode": ""}}}
+
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(response);
+                    string result = Conv.atos(jObject["Outputs"]["OutputInsertDetailTestCase"]);
+
+                    string _status = GetValueJsonResult(result, "Confirm");
+                    string _errorcode = GetValueJsonResult(result, "ErrorCode");
+
+                    return new Model.OutputInsertDetailTestCase()
+                    {
+                        Confirm = _status,
+                        ErrorCode = _errorcode
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.Out.WriteLine("-----------------");
+                //Console.Out.WriteLine(ex.Message);
+                Global.WriteLogFile("[API - InputInsertDetailTestCase] - " + ex.Message);
+            }
+            res = null;
+            return res;
+        }
+
+
+        public static Model.OutputUpdateFirmwareInfo UpdateFirmwareInfo(string serial, string machine_name, string user_name, string firmware, string firmware_version)
+        {
+            Model.OutputUpdateFirmwareInfo res;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + UpdateFirmwareInfoApiString);
+            string content = CreateContentInput("InputUpdateFirmwareInfo", CreateDataUpdateFirmwareInfo(serial, machine_name, user_name,firmware,firmware_version));
+
+            try
+            {
+                request.Timeout = 5000;
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                Global.WriteLogFile("[API - UpdateFirmwareInfo] - " + "\r\n" + content);
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+
+                    //{"Outputs": {"__Routing__": null,"OutputsInsertDetailTestCase": {"Confirm": "OK","ErrorCode": ""}}}
+
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(response);
+                    string result = Conv.atos(jObject["Outputs"]["OutputUpdateFirmwareInfo"]);
+
+                    string _sn = GetValueJsonResult(result, "SN");
+                    string _machinename = GetValueJsonResult(result, "MachineName");
+                    string _result = GetValueJsonResult(result, "Result");
+                    string _errorcode = GetValueJsonResult(result, "ErrorCode");
+                    string _username = GetValueJsonResult(result, "UserName");
+                    string _firmware = GetValueJsonResult(result, "Firmware");
+                    string _firmwareversion = GetValueJsonResult(result, "FirmwareVersion");
+
+
+                    return new Model.OutputUpdateFirmwareInfo()
+                    {
+                        SN = _sn,
+                        MachineName = _machinename,
+                        Result = _result,
+                        ErrorCode = _errorcode,
+                        UserName = _username,
+                        Firmware = _firmware,
+                        FirmwareVersion = _firmwareversion
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.Out.WriteLine("-----------------");
+                //Console.Out.WriteLine(ex.Message);
+                Global.WriteLogFile("[API - UpdateFirmwareInfo] - " + ex.Message);
+            }
+            res = null;
+            return res;
+        }
+
+
+        public static Model.OutPutGetSNInfo GetSNInfo(string serial, string machine_name, string user_name)
+        {
+            Model.OutPutGetSNInfo res;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + GetSNInfoApiString);
+            string content = CreateContentInput("InputGetSNInfo", CreateDataGetInfoSnInput(serial, machine_name, user_name));
+
+            try
+            {
+                request.Timeout = 5000;
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = content.Length;
+                StreamWriter requestWriter = new StreamWriter(request.GetRequestStream(), System.Text.Encoding.ASCII);
+                requestWriter.Write(content);
+                requestWriter.Close();
+
+                Global.WriteLogFile("[API - InputGetSNInfo] - " + "\r\n" + content);
+
+                HttpWebResponse httpWebResponse = (HttpWebResponse)request.GetResponse();
+
+                if (httpWebResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream webStream = httpWebResponse.GetResponseStream();
+                    StreamReader responseReader = new StreamReader(webStream);
+                    string response = responseReader.ReadToEnd();
+
+                    //{"Outputs": {"__Routing__": null,"OutputsInsertDetailTestCase": {"Confirm": "OK","ErrorCode": ""}}}
+
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(response);
+                    string result = Conv.atos(jObject["Outputs"]["OutputGetSNInfo"]);
+
+                    string _sn = GetValueJsonResult(result, "SN");
+                    string _machinename = GetValueJsonResult(result, "MachineName");
+                    string _modelcode = GetValueJsonResult(result, "ModelCode");
+                    string _status = GetValueJsonResult(result, "Status");
+                    string _errorcode = GetValueJsonResult(result, "ErrorCode");
+                    string _firmware = GetValueJsonResult(result, "Firmware");
+
+                    return new Model.OutPutGetSNInfo()
+                    {
+                        SN = _sn,
+                        MachineName = _machinename,
+                        ModelCode = _modelcode,
+                        Status = _status,
+                        ErrorCode = _errorcode,
+                        Firmware = _firmware
+                    };
+
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.Out.WriteLine("-----------------");
+                //Console.Out.WriteLine(ex.Message);
+                Global.WriteLogFile("[API - UpdateFirmwareInfo] - " + ex.Message);
+            }
+            res = null;
+            return res;
+        }
+
+        private static string GetValueJsonResult(string json, string keyword)
+        {
+            string res = json;
+            if (res.Length > 0)
+            {
+                res = res.Replace(": ", ":");
+                res = res.Replace("{", "");
+                res = res.Replace("}", "");
+                string[] separatingStrings = { ":" };
+
+                string[] sItems1 = res.Split(',');
+                if (sItems1.Length > 0)
+                {
+                    for(int i = 0; i < sItems1.Length; i++)
+                    {
+                        string temp = sItems1[i].Replace("\\","");
+                        temp = temp.Replace("\"", "");
+                        string[] sItems = temp.Split(separatingStrings, StringSplitOptions.None);
+                        if (sItems.Length > 1)
+                        {
+                            if (sItems[0] == keyword)
+                            {
+                                return sItems[1];
+                            }
+                        }
+                    }
+                    
+                }
+                
+            }
+            return "";
+        }
+
+
+        public static string CreateContentInput(string HeaderInput, string Data)
+        {
+            string res = "";
+            res = "{\"Inputs\": {\"" + HeaderInput + "\": \"" + Data + "\"}}";
+            return res;
+        }
+
+        public static string CreateDataGetSnInput(string serial, string machine_name)
+        {
+            //{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\"}
+            string res = "";
+            res = "{\\\"SN\\\":\\\"" + serial + "\\\",\\\"MachineName\\\":\\\"" + machine_name + "\\\"}";
+            return res;
+        }
+
+        public static string CreateDataInsertPassFailDetailTestCaseInput(string serial, string machine_name, string user_id, DataTable dtabTestCase)
+        {
+            //[{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\",\"UserID\":\"1196\",\"TestItem\":\"\",\"LowLimit\":\"\",\"Value\":\"\",\"HighLimit\":\"\",\"TestResult\":\"OK\",\"TestTime\":\"\"},
+            //{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\",\"UserID\":\"1196\",\"TestItem\":\"\",\"LowLimit\":\"\",\"Value\":\"\",\"HighLimit\":\"\",\"TestResult\":\"OK\",\"TestTime\":\"\"}]
+            if (dtabTestCase.Rows.Count <= 0) return "";
+            string res = "";
+            try
+            {
+                for (int i = 0; i < dtabTestCase.Rows.Count; i++)
+                {
+                    if(i == 0) res += "[";
+                    if (i > 0) res += ",";
+                    res += "{\\\"SN\\\":\\\"" + serial + "\\\",\\\"MachineName\\\":\\\"" + machine_name + "\\\",\\\"UserID\\\":\\\"" + user_id + "\\\",\\\"TestItem\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["TestName"]) + "\\\",\\\"LowLimit\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["LowValue"]) + "\\\",\\\"Value\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["ReadValue"]) + "\\\",\\\"HighLimit\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["HighValue"]) + "\\\",\\\"TestResult\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["Result"]) + "\\\",\\\"TestTime\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["TestTime"]) + "\\\"}";
+                    if (i == dtabTestCase.Rows.Count -1) res += "]";
+                }
+                return res;
+            }
+            catch (Exception ex)
+            {
+                Global.WriteLogFile("[CreateDataInsertDetailTestCaseInput] - " + ex.Message);
+            }
+            
+            return "";
+        }
+
+        public static string CreateDataInsertDetailTestCaseInput(string serial, string machine_name, DataTable dtabTestCase)
+        {
+            //[{\"SN\":\"20KSA650M5K0007\",\"MachineName\":\"A26 CPU  M1\",\"TestItem\":\"ABC\",\"LowLimit\":\"11\",\"Value\":\"AAA\",\"HighLimit\":\"1000\",\"TestResult\":\"12\",\"TestTime\":\"2020-05-29 09:09:09\"},
+            //{\"SN\":\"20KSA650M5K0007\",\"MachineName\":\"A26 CPU  M1\",\"TestItem\":\"DEF\",\"LowLimit\":\"12\",\"Value\":\"BBB\",\"HighLimit\":\"2000\",\"TestResult\":\"33\",\"TestTime\":\"2020-05-29 09:09:09\"}]
+
+            if (dtabTestCase.Rows.Count <= 0) return "";
+            string res = "";
+            try
+            {
+                for (int i = 0; i < dtabTestCase.Rows.Count; i++)
+                {
+                    if (i == 0) res += "[";
+                    if (i > 0) res += ",";
+                    res += "{\\\"SN\\\":\\\"" + serial + "\\\",\\\"MachineName\\\":\\\"" + machine_name + "\\\",\\\"TestItem\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["TestName"]) + "\\\",\\\"LowLimit\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["LowValue"]) + "\\\",\\\"Value\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["ReadValue"]) + "\\\",\\\"HighLimit\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["HighValue"]) + "\\\",\\\"TestResult\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["Result"]) + "\\\",\\\"TestTime\\\":\\\"" + Conv.atos(dtabTestCase.Rows[i]["TestTime"]) + "\\\"}";
+                    if (i == dtabTestCase.Rows.Count - 1) res += "]";
+                }
+                return res;
+            }
+            catch (Exception ex)
+            {
+                Global.WriteLogFile("[CreateDataInsertDetailTestCaseInput] - " + ex.Message);
+            }
+
+            return "";
+        }
+
+        public static string CreateDataUpdateFirmwareInfo(string serial, string machine_name, string user_name, string firmware, string firmware_version)
+        {
+            //{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\"}
+            string res = "";
+            res = "{\\\"SN\\\":\\\"" + serial + "\\\",\\\"MachineName\\\":\\\"" + machine_name + "\\\",\\\"UserName\\\":\\\"" + user_name + "\\\",\\\"Firmware\\\":\\\"" + firmware + "\\\",\\\"FirmwareVersion\\\":\\\"" + firmware_version +  "\\\"}";
+            return res;
+        }
+
+        public static string CreateDataGetInfoSnInput(string serial, string machine_name, string user_name)
+        {
+            //{\"SN\":\"S02HS11310000001\",\"MachineName\":\"TEST01_PT_1\"}
+            string res = "";
+            res = "{\\\"SN\\\":\\\"" + serial + "\\\",\\\"MachineName\\\":\\\"" + machine_name + "\\\",\\\"UserName\\\":\\\"" + user_name + "\\\"}";
+            return res;
+        }
+
+        #region TEST
+        /*
+        public static string GetSnStatusTest(string serial, string machine_name)
+        {
+            string res = "";
+            res = Post(RestApiHelper.Url, "api/Factory/getSNStatus", RestApiHelper.CreateContentInput("InputGetSNStatus", CreateDataGetSnInput("S02HS11310000001", "TEST01_PT_1"))); ;
+            return res;
+        }
+
+        */
+        #endregion
+    }
+}

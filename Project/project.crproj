@@ -1,0 +1,4 @@
+<project outputDir="D:\PMTT\SEI_SEEV\MayDoDuongKinhTruc\DigitalMicrometer2018\Project\bin\Debug\Confused" baseDir="D:\PMTT\SEI_SEEV\MayDoDuongKinhTruc\DigitalMicrometer2018\Project\bin\Debug" xmlns="http://confuser.codeplex.com">
+  <packer id="compressor" />
+  <module path="CCD_Micrometer.exe" />
+</project>
